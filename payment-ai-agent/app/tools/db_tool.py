@@ -1,4 +1,4 @@
-from app.services.db import get_connection
+from services.db import get_connection
 
 
 def check_transaction(payment_tracking_id: str) -> dict:

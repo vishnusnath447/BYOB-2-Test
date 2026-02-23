@@ -1,5 +1,5 @@
 import streamlit as st
-from app.agent.executor import run_agent
+from agent.executor import run_agent
 
 st.set_page_config(page_title="Payment AI Agent", layout="wide")
 
@@ -12,4 +12,8 @@ if st.button("Investigate") and query:
         result = run_agent(query)
 
     st.subheader("Result")
-    st.write(result)
+    st.subheader("Investigation Summary")
+    st.text(result["summary"])
+
+    with st.expander("Technical Details"):
+        st.json(result["details"])
