@@ -11,9 +11,8 @@ if st.button("Investigate") and query:
     with st.spinner("Agent is investigating..."):
         result = run_agent(query)
 
-    st.subheader("Result")
-    st.subheader("Investigation Summary")
-    st.text(result["summary"])
+    st.subheader("🔍 Investigation Summary")
+    st.write(result["summary"])
 
-    with st.expander("Technical Details"):
-        st.json(result["details"])
+    if result.get("tools_used"):
+        st.caption(f"🛠️ Tools used: {' → '.join(result['tools_used'])}")

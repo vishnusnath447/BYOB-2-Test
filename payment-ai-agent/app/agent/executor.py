@@ -1,171 +1,187 @@
 # app/agent/executor.py
+import json
+from pathlib import Path
+from groq import Groq
+from config import GROQ_API_KEY
+
 from tools.metadata_tool import get_call_ref
 from tools.logs_tool import analyze_logs
 from tools.db_tool import check_transaction
 from tools.k8_tool import get_pod_status
-from agent.planner import create_plan
-import json
-from pathlib import Path
+
+client = Groq(api_key=GROQ_API_KEY)
+MODEL = "llama-3.3-70b-versatile"
+
+# ----------------------------
+# Tool Definitions for LLM
+# ----------------------------
+TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "get_call_ref",
+            "description": "Get the callRefId mapped to a paymentTrackingId from metadata. Always call this first when you have a PTX id and need to investigate logs.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "payment_tracking_id": {
+                        "type": "string",
+                        "description": "The PTX-xxxx payment tracking ID"
+                    }
+                },
+                "required": ["payment_tracking_id"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "analyze_logs",
+            "description": "Query logs for a given callRefId to find errors, failures, or success status. Use 'ALL' as call_ref_id to get all failed transactions.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "call_ref_id": {
+                        "type": "string",
+                        "description": "The callRefId to query logs for. Use 'ALL' to list all failed transactions."
+                    }
+                },
+                "required": ["call_ref_id"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "check_transaction",
+            "description": "Check if a payment transaction exists in the database and get its status.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "payment_tracking_id": {
+                        "type": "string",
+                        "description": "The PTX-xxxx payment tracking ID"
+                    }
+                },
+                "required": ["payment_tracking_id"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_pod_status",
+            "description": "Check Kubernetes pod health and infrastructure status. Use when asked about infra, k8, pods, or to correlate failures with infrastructure issues.",
+            "parameters": {
+                "type": "object",
+                "properties": {}
+            }
+        }
+    }
+]
+
+SYSTEM_PROMPT = """
+You are a payment investigation AI agent.
+You have access to tools to investigate payment issues.
+Use the tools as needed to answer the user's question.
+After gathering all necessary information, provide a clear and concise natural language summary.
+Do not show raw JSON or technical field names in your final answer.
+"""
 
 
 # ----------------------------
-# Helper functions
+# Tool Dispatcher
 # ----------------------------
-def extract_failed_transactions():
-    """Return list of callRefIds where logs show failure."""
-    DATA_PATH = Path("data/logs.json")
-    if not DATA_PATH.exists():
-        return ["logs.json not found"]
-    with open(DATA_PATH, "r") as f:
-        logs = json.load(f)
-    failed = [log for log in logs if log["status"] != 200]
-    return list(set([log["callRefId"] for log in failed]))
+def dispatch_tool(tool_name: str, tool_args: dict) -> str:
+    """Execute the requested tool and return result as string."""
 
+    if tool_name == "get_call_ref":
+        result = get_call_ref(tool_args["payment_tracking_id"])
 
-def generate_infra_summary(k8_status: dict) -> str:
-    """Return human-readable infra summary based on K8 status."""
-    unhealthy = k8_status.get("unhealthyServices", [])
-    if not unhealthy:
-        return "All services are healthy."
-    summary = ""
-    for svc in unhealthy:
-        summary += f"- {svc['service']} is {svc['status']} (restarts: {svc['restartCount']})\n"
-    return summary.strip()
-
-
-def extract_payment_id(user_query: str) -> str | None:
-    """Extract PTX-xxxx from user query."""
-    words = user_query.split()
-    for word in words:
-        if word.startswith("PTX-"):
-            return word.strip()
-    return None
-
-
-def generate_summary(payment_id: str, logs: dict, db_status: dict, k8_status: dict) -> str:
-    """Full investigation summary (for INVESTIGATE_FAILURE or FULL_INVESTIGATION)."""
-    lines = [f"Transaction: {payment_id}"]
-
-    # --- LOGS ---
-    if logs:
-        if logs.get("found"):
-            if logs.get("status") == "SUCCESS":
-                lines.append("Status: SUCCESS")
-            else:
-                lines.append(f"Status: FAILED")
-                lines.append(
-                    f"Failure occurred in {logs.get('failedService')} "
-                    f"with error {logs.get('errorStatusCode')} "
-                    f"({logs.get('errorMessage')})."
-                )
+    elif tool_name == "analyze_logs":
+        call_ref_id = tool_args["call_ref_id"]
+        if call_ref_id == "ALL":
+            # Read all logs and return failed ones
+            DATA_PATH = Path("data/logs.json")
+            with open(DATA_PATH, "r") as f:
+                logs = json.load(f)
+            failed = [log for log in logs if log["status"] != 200]
+            failed_refs = list(set([log["callRefId"] for log in failed]))
+            result = {"failed_call_refs": failed_refs, "count": len(failed_refs)}
         else:
-            lines.append("No logs found for this transaction.")
+            result = analyze_logs(call_ref_id)
 
-    # --- DATABASE ---
-    if db_status:
-        if db_status.get("existsInDB"):
-            lines.append("Database: Transaction persisted successfully.")
-        else:
-            lines.append("Database: Transaction not found (not persisted).")
+    elif tool_name == "check_transaction":
+        result = check_transaction(tool_args["payment_tracking_id"])
 
-    # --- K8 ---
-    if k8_status:
-        unhealthy = k8_status.get("unhealthyServices", [])
-        if unhealthy:
-            lines.append("Infrastructure issues detected:")
-            for svc in unhealthy:
-                lines.append(
-                    f"- {svc.get('service')} is {svc.get('status')} "
-                    f"(restarts: {svc.get('restartCount')})"
-                )
-            # Correlate failure service with unhealthy pod
-            if logs and logs.get("status") == "FAILED":
-                failed_service = logs.get("failedService")
-                for svc in unhealthy:
-                    if svc.get("service") == failed_service:
-                        lines.append(
-                            f"Likely root cause: {failed_service} instability (pod not healthy)."
-                        )
-                        break
+    elif tool_name == "get_pod_status":
+        result = get_pod_status()
 
-    return "\n".join(lines)
+    else:
+        result = {"error": f"Unknown tool: {tool_name}"}
+
+    return json.dumps(result)
 
 
 # ----------------------------
 # Main Agent Function
 # ----------------------------
 def run_agent(user_query: str) -> dict:
-    """Main agent execution."""
-    plan = create_plan(user_query)
-    payment_id = extract_payment_id(user_query)
+    """Main agent loop using Groq tool calling."""
 
-    # Check if payment id is required
-    if plan["requires_payment_id"] and not payment_id:
-        return {"error": "PaymentTrackingId required but not found in query."}
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": user_query}
+    ]
 
-    logs = None
-    db_status = None
-    k8_status = None
-    call_ref = None
+    tools_used = []
 
-    # --- Execute Steps Based on Plan ---
-    if "metadata" in plan["steps"] and payment_id:
-        metadata = get_call_ref(payment_id)
-        if metadata.get("found"):
-            call_ref = metadata["callRefId"]
+    # Agentic loop — keep calling LLM until it stops requesting tools
+    while True:
+        response = client.chat.completions.create(
+        model=MODEL,
+        messages=messages,
+        tools=TOOLS,
+        tool_choice="auto",
+        parallel_tool_calls=False
+    )
 
-    if "logs" in plan["steps"] and call_ref:
-        logs = analyze_logs(call_ref)
+        message = response.choices[0].message
 
-    if "db" in plan["steps"] and payment_id:
-        db_status = check_transaction(payment_id)
+        # If no tool calls → LLM is done, return final answer
+        if not message.tool_calls:
+            return {
+                "summary": message.content.strip(),
+                "tools_used": tools_used
+            }
 
-    if "k8" in plan["steps"]:
-        k8_status = get_pod_status()
+        # Append assistant message with tool calls
+        messages.append({
+            "role": "assistant",
+            "content": message.content or "",
+            "tool_calls": [
+                {
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {
+                        "name": tc.function.name,
+                        "arguments": tc.function.arguments
+                    }
+                }
+                for tc in message.tool_calls
+            ]
+        })
 
-    # --- Intent-specific Summary ---
-    if plan["intent"] == "LIST_FAILED":
-        failed_list = extract_failed_transactions()
-        summary = "\n".join(failed_list) if failed_list else "No failed transactions found."
-        return {
-            "intent": plan["intent"],
-            "summary": summary,
-            "details": {"failedTransactions": failed_list, "logs": logs}
-        }
+        # Execute each tool and append results
+        for tool_call in message.tool_calls:
+            tool_name = tool_call.function.name
+            tool_args = json.loads(tool_call.function.arguments)
 
-    if plan["intent"] == "CHECK_INFRA":
-        summary = generate_infra_summary(k8_status)
-        return {
-            "intent": plan["intent"],
-            "summary": summary,
-            "details": {"k8_status": k8_status}
-        }
+            tools_used.append(tool_name)
+            tool_result = dispatch_tool(tool_name, tool_args)
 
-    if plan["intent"] == "CHECK_STATUS":
-        summary = f"Transaction: {payment_id}\n"
-        if db_status:
-            if db_status.get("existsInDB"):
-                summary += "Database: Transaction persisted successfully."
-            else:
-                summary += "Database: Transaction not found."
-        return {
-            "intent": plan["intent"],
-            "summary": summary,
-            "details": {"database": db_status}
-        }
-
-    # Add this at the very end of run_agent
-    if "summary" not in locals():
-        summary = "No summary available for this query."
-
-    return {
-        "intent": plan.get("intent", "UNKNOWN"),
-        "summary": summary,
-        "details": {
-            "paymentTrackingId": payment_id,
-            "callRefId": call_ref,
-            "logs": logs,
-            "database": db_status,
-            "k8_status": k8_status
-        }
-    }
+            messages.append({
+                "role": "tool",
+                "tool_call_id": tool_call.id,
+                "content": tool_result
+            })
