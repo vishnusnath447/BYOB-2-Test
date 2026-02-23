@@ -1,10 +1,10 @@
-import requests
 import json
+from groq import Groq
+from config import GROQ_API_KEY
 
+client = Groq(api_key=GROQ_API_KEY)
 
-OLLAMA_URL = "http://localhost:11434/api/generate"
-MODEL = "llama3"
-
+MODEL = "llama-3.3-70b-versatile"
 
 SYSTEM_PROMPT = """
 You are an investigation planning AI.
@@ -41,25 +41,18 @@ Return format:
 
 
 def create_plan(user_query: str) -> dict:
-    prompt = SYSTEM_PROMPT + f"\nUser Query: {user_query}"
-
-    response = requests.post(
-        OLLAMA_URL,
-        json={
-            "model": MODEL,
-            "prompt": prompt,
-            "stream": False
-        }
+    response = client.chat.completions.create(
+        model=MODEL,
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_query}
+        ],
+        response_format={"type": "json_object"}
     )
 
-    result = response.json()
-    raw_output = result["response"]
-
     try:
-        plan = json.loads(raw_output)
-        return plan
+        return json.loads(response.choices[0].message.content)
     except json.JSONDecodeError:
-        # fallback safe default
         return {
             "intent": "FULL_INVESTIGATION",
             "requires_payment_id": True,
