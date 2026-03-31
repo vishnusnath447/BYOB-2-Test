@@ -1,0 +1,21 @@
+python-dotenv
+groq
+fastapi
+uvicorn[standard]
+
+# LangGraph + LangChain
+langgraph
+langchain
+langchain-groq
+langchain-community
+langchain-core
+
+# Memory
+faiss-cpu
+sentence-transformers
+
+# Analytics layer
+duckdb
+
+# OpenRouter swap (uncomment when ready)
+# openai
