@@ -35,8 +35,10 @@ def get_call_ref(payment_tracking_id: str) -> dict:
 @tool
 def analyze_logs(call_ref_id: str) -> dict:
     """
-    Query logs for a given callRefId to find errors, failures, or success status.
+    Query logs for a given callRefId. Only accepts one argument: call_ref_id (string).
     Use 'ALL' as call_ref_id to get all failed transactions.
+    Returns all log entries for the callRefId including service, status, message, and timestamp.
+    Do NOT pass any other arguments like 'detailed' or 'verbose' — they are not supported.
     """
     logs_path = DATA_DIR / "logs.json"
     if not logs_path.exists():
@@ -54,21 +56,27 @@ def analyze_logs(call_ref_id: str) -> dict:
     if not related:
         return {"callRefId": call_ref_id, "found": False, "message": "No logs found"}
 
-    failures = [log for log in related if log["status"] != 200]
-    if failures:
-        f = failures[0]
-        return {
-            "callRefId": call_ref_id,
-            "found": True,
-            "status": "FAILED",
-            "failedService": f["service"],
-            "errorMessage": f["message"],
-            "errorStatusCode": f["status"],
-            "timestamp": f["timestamp"],
+    # Return ALL log entries for this callRef, not just the first failure
+    entries = [
+        {
+            "service": log["service"],
+            "status": log["status"],
+            "message": log.get("message", ""),
+            "timestamp": log.get("timestamp", ""),
         }
+        for log in related
+    ]
 
-    return {"callRefId": call_ref_id, "found": True, "status": "SUCCESS",
-            "servicesChecked": [log["service"] for log in related]}
+    failures = [e for e in entries if e["status"] != 200]
+    overall_status = "FAILED" if failures else "SUCCESS"
+
+    return {
+        "callRefId": call_ref_id,
+        "found": True,
+        "overallStatus": overall_status,
+        "totalLogs": len(entries),
+        "logs": entries,
+    }
 
 
 @tool
