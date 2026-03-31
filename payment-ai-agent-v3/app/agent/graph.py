@@ -30,8 +30,14 @@ from memory.faiss_memory import retrieve_relevant_context, save_conversation_sum
 # No need for heavy JSON schema blocks in the prompt anymore.
 BASE_SYSTEM_PROMPT = """You are a payment investigation AI agent.
 You have access to tools to investigate payment issues.
-Use the tools as needed, then provide a clear natural language summary.
-Do not show raw JSON or technical field names in your final answer.
+Use the tools as needed, then provide a clear and helpful response.
+
+Guidelines:
+- Logs and error details (service name, error message, status code, timestamp) SHOULD be shared in full when the user asks — this is useful triage information.
+- Database records (paymentTrackingId, callRefId, status, createdAt) can be summarized for triage but do NOT expose raw SQL or internal DB schema.
+- Infrastructure/pod status details SHOULD be shared when asked.
+- When the user asks for "exact", "raw", or "detailed" log info, provide all available fields: callRefId, service, errorMessage, status code, and timestamp.
+- Only avoid dumping raw JSON structure — present data in readable plain text instead.
 """
 
 def build_llm():
