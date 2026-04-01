@@ -1,57 +1,57 @@
 import React, { useRef, useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 
-const TOOL_ICONS = {
-  get_call_ref:      { icon: '🔗', label: 'get_call_ref',      color: '#00d4ff' },
-  analyze_logs:      { icon: '📋', label: 'analyze_logs',      color: '#ffb300' },
-  check_transaction: { icon: '🗄',  label: 'check_transaction', color: '#00ff94' },
-  get_pod_status:    { icon: '🖥',  label: 'get_pod_status',    color: '#ff6b9d' },
+const TOOL_COLORS = {
+  get_call_ref:      'var(--accent)',
+  analyze_logs:      'var(--amber)',
+  check_transaction: 'var(--green)',
+  get_pod_status:    '#a78bfa',
 };
 
 const SUGGESTIONS = [
+  'List all failed payment transactions',
   'What happened to PTX-1006?',
-  'Show me all failed transactions',
   'Check the infrastructure status',
-  'Investigate PTX-1003',
+  'Investigate PTX-1003 in detail',
 ];
 
-function ToolBadge({ toolName }) {
-  const info = TOOL_ICONS[toolName] || { icon: '🔧', label: toolName, color: '#5a7a99' };
+function ToolBadge({ name }) {
+  const color = TOOL_COLORS[name] || 'var(--text-3)';
   return (
-    <span style={{ ...ts.badge, borderColor: info.color + '44', color: info.color }}>
-      {info.icon} {info.label}
+    <span style={{ ...ts.badge, color, borderColor: color + '33', background: color + '10' }}>
+      {name}
     </span>
   );
 }
 
 function TypingIndicator() {
   return (
-    <div style={ts.typingWrap}>
-      <div style={ts.agentAvatar}>AI</div>
-      <div style={ts.typingBubble}>
-        {[0, 1, 2].map(i => (
-          <span key={i} style={{ ...ts.typingDot, animationDelay: `${i * 0.15}s` }} />
-        ))}
+    <div style={ts.msgRow}>
+      <div style={ts.avatar}>AI</div>
+      <div style={{ ...ts.bubble, ...ts.agentBubble, padding: '12px 16px' }}>
+        <div style={ts.typing}>
+          {[0, 1, 2].map(i => (
+            <span key={i} style={{ ...ts.typingDot, animationDelay: `${i * 0.15}s` }} />
+          ))}
+        </div>
       </div>
     </div>
   );
 }
 
 function Message({ msg }) {
-  const isUser = msg.role === 'user';
+  const isUser  = msg.role === 'user';
   const isError = msg.role === 'error';
 
   return (
-    <div style={{ ...ts.msgRow, justifyContent: isUser ? 'flex-end' : 'flex-start', animation: 'fadeUp 0.3s ease' }}>
-      {!isUser && (
-        <div style={{ ...ts.agentAvatar, alignSelf: 'flex-end', flexShrink: 0 }}>AI</div>
-      )}
-      <div style={{ maxWidth: '72%' }}>
-        {/* Tool badges */}
+    <div style={{ ...ts.msgRow, flexDirection: isUser ? 'row-reverse' : 'row', animation: 'fadeUp 0.2s ease' }}>
+      <div style={{ ...ts.avatar, ...(isUser ? ts.userAvatar : ts.agentAvatarStyle) }}>
+        {isUser ? 'You' : 'AI'}
+      </div>
+      <div style={{ maxWidth: '72%', display: 'flex', flexDirection: 'column', gap: 5, alignItems: isUser ? 'flex-end' : 'flex-start' }}>
         {msg.tools && msg.tools.length > 0 && (
           <div style={ts.toolsRow}>
-            <span style={ts.toolsLabel}>Tools called →</span>
-            {msg.tools.map((t, i) => <ToolBadge key={i} toolName={t} />)}
+            {msg.tools.map((t, i) => <ToolBadge key={i} name={t} />)}
           </div>
         )}
         <div style={{
@@ -59,52 +59,69 @@ function Message({ msg }) {
           ...(isUser ? ts.userBubble : isError ? ts.errorBubble : ts.agentBubble),
         }}>
           {isUser ? (
-            <span style={ts.userText}>{msg.content}</span>
+            <span style={{ fontSize: 14, lineHeight: 1.6 }}>{msg.content}</span>
           ) : (
-            <div style={ts.markdownWrap}>
+            <div style={ts.mdWrap}>
               <ReactMarkdown>{msg.content}</ReactMarkdown>
             </div>
           )}
         </div>
       </div>
-      {isUser && (
-        <div style={{ ...ts.userAvatar, alignSelf: 'flex-end', flexShrink: 0 }}>You</div>
-      )}
     </div>
   );
 }
 
-function EmptyState({ onSuggest }) {
+function EmptyState({ onSuggest, viewingPast }) {
+  if (viewingPast) return (
+    <div style={ts.empty}>
+      <div style={ts.emptyIcon}>
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+          <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke="var(--text-3)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </div>
+      <div style={ts.emptyTitle}>Past Session</div>
+      <div style={ts.emptySub}>This is a read-only view of a past session summary.<br/>Start a new session to investigate.</div>
+    </div>
+  );
+
   return (
     <div style={ts.empty}>
-      <div style={ts.emptyIcon}>⬡</div>
-      <div style={ts.emptyTitle}>Payment Investigation Agent</div>
-      <div style={ts.emptySub}>
-        Ask about any payment tracking ID, failure root cause,<br />
-        or infrastructure status. The agent investigates autonomously.
+      <div style={ts.emptyIcon}>
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+          <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke="var(--text-3)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
       </div>
+      <div style={ts.emptyTitle}>Payment Investigation Agent</div>
+      <div style={ts.emptySub}>Ask about any payment ID, failure, or infrastructure status.<br/>The agent investigates autonomously using 4 tools.</div>
       <div style={ts.suggestions}>
         {SUGGESTIONS.map(s => (
-          <button key={s} style={ts.suggestBtn} onClick={() => onSuggest(s)}>
-            {s}
-          </button>
+          <button key={s} style={ts.suggestBtn} onClick={() => onSuggest(s)}>{s}</button>
         ))}
       </div>
     </div>
   );
 }
 
-export default function ChatPanel({ messages, loading, agentStatus, onSend, sessionId }) {
-  const [input, setInput] = useState('');
-  const bottomRef = useRef(null);
-  const inputRef = useRef(null);
+export default function ChatPanel({ messages, loading, agentStatus, onSend, sessionId, viewingPast, onNewSession }) {
+  const [input, setInput]   = useState('');
+  const bottomRef           = useRef(null);
+  const inputRef            = useRef(null);
+  const textareaRef         = useRef(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
 
+  // Auto-resize textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px';
+    }
+  }, [input]);
+
   const send = () => {
-    if (!input.trim()) return;
+    if (!input.trim() || loading || viewingPast) return;
     onSend(input.trim());
     setInput('');
   };
@@ -113,30 +130,42 @@ export default function ChatPanel({ messages, loading, agentStatus, onSend, sess
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
   };
 
+  const statusText = { thinking: 'Thinking...', done: 'Done' }[agentStatus] || '';
+
   return (
     <div style={ts.panel}>
       {/* Header */}
       <div style={ts.header}>
         <div style={ts.headerLeft}>
-          <div style={ts.headerTitle}>Investigation Console</div>
+          <span style={ts.headerTitle}>
+            {viewingPast ? 'Past Session' : 'Investigation Console'}
+          </span>
           {sessionId && (
-            <span style={ts.headerSession}>
-              <span style={ts.liveIndicator} />
-              {`SID-${sessionId}`}
+            <span style={ts.sessionChip}>
+              <span style={{ ...ts.chipDot, background: viewingPast ? 'var(--amber)' : 'var(--green)' }} />
+              {sessionId.slice(0, 8)}
             </span>
+          )}
+          {viewingPast && (
+            <span style={ts.readOnlyBadge}>Read only</span>
           )}
         </div>
         <div style={ts.headerRight}>
-          {agentStatus === 'thinking' && <span style={ts.statusChip}>🧠 Reasoning...</span>}
-          {agentStatus === 'calling-tool' && <span style={ts.statusChip}>🔧 Calling tool...</span>}
-          {agentStatus === 'done' && <span style={{ ...ts.statusChip, color: 'var(--green)' }}>✓ Complete</span>}
+          {statusText && (
+            <span style={ts.statusText}>{statusText}</span>
+          )}
+          {viewingPast && (
+            <button style={ts.resumeBtn} onClick={onNewSession}>
+              + New session
+            </button>
+          )}
         </div>
       </div>
 
       {/* Messages */}
       <div style={ts.messages}>
         {messages.length === 0 ? (
-          <EmptyState onSuggest={(s) => { setInput(s); inputRef.current?.focus(); }} />
+          <EmptyState onSuggest={(s) => { setInput(s); textareaRef.current?.focus(); }} viewingPast={viewingPast} />
         ) : (
           <>
             {messages.map(m => <Message key={m.id} msg={m} />)}
@@ -147,31 +176,35 @@ export default function ChatPanel({ messages, loading, agentStatus, onSend, sess
       </div>
 
       {/* Input */}
-      <div style={ts.inputArea}>
-        <div style={ts.inputWrap}>
-          <span style={ts.inputPrompt}>{'>'}</span>
-          <textarea
-            ref={inputRef}
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={handleKey}
-            placeholder="Ask about a payment (e.g. What happened to PTX-1006?)"
-            style={ts.input}
-            rows={1}
-            disabled={loading}
-          />
-          <button
-            style={{ ...ts.sendBtn, opacity: (!input.trim() || loading) ? 0.4 : 1 }}
-            onClick={send}
-            disabled={!input.trim() || loading}
-          >
-            {loading ? <span style={ts.spinner} /> : '↑'}
-          </button>
+      {!viewingPast && (
+        <div style={ts.inputArea}>
+          <div style={{ ...ts.inputWrap, borderColor: loading ? 'rgba(37,99,235,0.3)' : 'var(--border)' }}>
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={handleKey}
+              placeholder="Ask about a payment or infrastructure issue..."
+              style={ts.input}
+              rows={1}
+              disabled={loading}
+            />
+            <button
+              style={{ ...ts.sendBtn, opacity: (!input.trim() || loading) ? 0.4 : 1 }}
+              onClick={send}
+              disabled={!input.trim() || loading}
+            >
+              {loading
+                ? <span style={ts.spinner} />
+                : <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 5l7 7-7 7M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+              }
+            </button>
+          </div>
+          <div style={ts.inputHint}>Enter to send · Shift+Enter for newline</div>
         </div>
-        <div style={ts.inputHint}>
-          Enter to send · Shift+Enter for newline
-        </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -182,6 +215,7 @@ const ts = {
     display: 'flex',
     flexDirection: 'column',
     overflow: 'hidden',
+    background: 'var(--bg)',
   },
   header: {
     display: 'flex',
@@ -191,54 +225,72 @@ const ts = {
     borderBottom: '1px solid var(--border)',
     background: 'var(--surface)',
     flexShrink: 0,
+    minHeight: 54,
   },
   headerLeft: {
     display: 'flex',
     alignItems: 'center',
-    gap: 14,
+    gap: 10,
   },
   headerTitle: {
-    fontFamily: 'var(--sans)',
-    fontWeight: 700,
-    fontSize: 15,
+    fontSize: 14,
+    fontWeight: 600,
     color: 'var(--text)',
-    letterSpacing: '-0.3px',
+    letterSpacing: '-0.2px',
   },
-  headerSession: {
-    fontFamily: 'var(--mono)',
-    fontSize: 10,
-    color: 'var(--cyan)',
-    background: 'var(--cyan-glow)',
-    border: '1px solid var(--border2)',
-    borderRadius: 4,
-    padding: '2px 8px',
+  sessionChip: {
     display: 'flex',
     alignItems: 'center',
     gap: 5,
+    fontSize: 11,
+    fontFamily: 'var(--mono)',
+    color: 'var(--text-2)',
+    background: 'var(--surface2)',
+    border: '1px solid var(--border)',
+    borderRadius: 4,
+    padding: '2px 7px',
   },
-  liveIndicator: {
-    width: 6,
-    height: 6,
+  chipDot: {
+    width: 5,
+    height: 5,
     borderRadius: '50%',
-    background: 'var(--green)',
-    boxShadow: '0 0 6px var(--green)',
-    display: 'inline-block',
+    flexShrink: 0,
+  },
+  readOnlyBadge: {
+    fontSize: 10,
+    fontWeight: 500,
+    color: 'var(--amber)',
+    background: 'var(--amber-dim)',
+    border: '1px solid rgba(245,158,11,0.2)',
+    borderRadius: 4,
+    padding: '2px 7px',
+    fontFamily: 'var(--mono)',
   },
   headerRight: {
     display: 'flex',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
   },
-  statusChip: {
-    fontFamily: 'var(--mono)',
-    fontSize: 10,
-    color: 'var(--cyan)',
-    animation: 'shimmer 1.5s linear infinite',
+  statusText: {
+    fontSize: 12,
+    color: 'var(--text-3)',
+    fontStyle: 'italic',
+    animation: 'pulse 1.5s ease-in-out infinite',
+  },
+  resumeBtn: {
+    fontSize: 12,
+    fontWeight: 500,
+    color: '#60a5fa',
+    background: 'var(--accent-dim)',
+    border: '1px solid rgba(37,99,235,0.2)',
+    borderRadius: 'var(--radius)',
+    padding: '5px 10px',
+    cursor: 'pointer',
   },
   messages: {
     flex: 1,
     overflowY: 'auto',
-    padding: '24px',
+    padding: '28px 24px',
     display: 'flex',
     flexDirection: 'column',
     gap: 20,
@@ -248,108 +300,81 @@ const ts = {
     gap: 10,
     alignItems: 'flex-start',
   },
-  agentAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    background: 'linear-gradient(135deg, var(--cyan) 0%, #0055ff 100%)',
+  avatar: {
+    width: 30,
+    height: 30,
+    borderRadius: 6,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    fontSize: 10,
+    fontWeight: 600,
     fontFamily: 'var(--mono)',
-    fontSize: 9,
-    fontWeight: 700,
-    color: '#fff',
     flexShrink: 0,
-    boxShadow: '0 0 10px rgba(0,212,255,0.3)',
+  },
+  agentAvatarStyle: {
+    background: 'var(--accent)',
+    color: '#fff',
   },
   userAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    background: 'var(--surface2)',
+    background: 'var(--surface3)',
+    color: 'var(--text-2)',
     border: '1px solid var(--border)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontFamily: 'var(--mono)',
-    fontSize: 9,
-    color: 'var(--text-muted)',
-    flexShrink: 0,
-  },
-  toolsRow: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: 5,
-    marginBottom: 6,
-    alignItems: 'center',
-  },
-  toolsLabel: {
-    fontFamily: 'var(--mono)',
-    fontSize: 9,
-    color: 'var(--text-dim)',
-  },
-  badge: {
-    fontFamily: 'var(--mono)',
-    fontSize: 9,
-    padding: '2px 7px',
-    borderRadius: 4,
-    border: '1px solid',
-    background: 'rgba(0,0,0,0.3)',
   },
   bubble: {
-    padding: '12px 16px',
-    borderRadius: 12,
-    lineHeight: 1.6,
+    padding: '10px 14px',
+    borderRadius: 10,
+    lineHeight: 1.65,
     fontSize: 14,
-  },
-  userBubble: {
-    background: 'var(--cyan-glow)',
-    border: '1px solid var(--border2)',
-    borderBottomRightRadius: 4,
   },
   agentBubble: {
     background: 'var(--surface)',
     border: '1px solid var(--border)',
-    borderBottomLeftRadius: 4,
+    borderTopLeftRadius: 3,
+    color: 'var(--text)',
+  },
+  userBubble: {
+    background: 'var(--accent-dim)',
+    border: '1px solid rgba(37,99,235,0.2)',
+    borderTopRightRadius: 3,
+    color: 'var(--text)',
   },
   errorBubble: {
-    background: 'rgba(255, 71, 87, 0.08)',
-    border: '1px solid rgba(255, 71, 87, 0.3)',
+    background: 'var(--red-dim)',
+    border: '1px solid rgba(239,68,68,0.2)',
     color: 'var(--red)',
+    borderTopLeftRadius: 3,
   },
-  userText: {
+  mdWrap: {
     color: 'var(--text)',
-    fontFamily: 'var(--sans)',
-    fontSize: 14,
-  },
-  markdownWrap: {
-    color: 'var(--text)',
-    fontFamily: 'var(--sans)',
     fontSize: 14,
     lineHeight: 1.7,
   },
-  typingWrap: {
+  toolsRow: {
     display: 'flex',
-    gap: 10,
-    alignItems: 'flex-end',
+    flexWrap: 'wrap',
+    gap: 4,
   },
-  typingBubble: {
-    background: 'var(--surface)',
-    border: '1px solid var(--border)',
-    borderRadius: '12px 12px 12px 4px',
-    padding: '12px 16px',
+  badge: {
+    fontSize: 10,
+    fontFamily: 'var(--mono)',
+    padding: '2px 6px',
+    borderRadius: 4,
+    border: '1px solid',
+  },
+  typing: {
     display: 'flex',
-    gap: 5,
+    gap: 4,
     alignItems: 'center',
+    height: 16,
   },
   typingDot: {
-    width: 7,
-    height: 7,
+    width: 6,
+    height: 6,
     borderRadius: '50%',
-    background: 'var(--cyan)',
+    background: 'var(--text-3)',
     display: 'inline-block',
-    animation: 'blink 1.2s ease-in-out infinite',
+    animation: 'typingBounce 1s ease-in-out infinite',
   },
   empty: {
     flex: 1,
@@ -357,72 +382,68 @@ const ts = {
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 14,
+    gap: 12,
     padding: '40px 20px',
     textAlign: 'center',
+    animation: 'fadeIn 0.3s ease',
   },
   emptyIcon: {
-    fontSize: 52,
-    background: 'linear-gradient(135deg, var(--cyan), #0055ff)',
-    WebkitBackgroundClip: 'text',
-    WebkitTextFillColor: 'transparent',
-    lineHeight: 1,
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    background: 'var(--surface)',
+    border: '1px solid var(--border)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 4,
   },
   emptyTitle: {
-    fontFamily: 'var(--sans)',
-    fontWeight: 800,
-    fontSize: 22,
+    fontSize: 16,
+    fontWeight: 600,
     color: 'var(--text)',
-    letterSpacing: '-0.5px',
+    letterSpacing: '-0.3px',
   },
   emptySub: {
-    fontFamily: 'var(--sans)',
     fontSize: 13,
-    color: 'var(--text-muted)',
+    color: 'var(--text-2)',
     lineHeight: 1.6,
-    maxWidth: 420,
+    maxWidth: 400,
   },
   suggestions: {
     display: 'flex',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 6,
     justifyContent: 'center',
-    marginTop: 8,
+    marginTop: 6,
+    maxWidth: 520,
   },
   suggestBtn: {
-    fontFamily: 'var(--mono)',
-    fontSize: 11,
-    color: 'var(--cyan)',
-    background: 'var(--cyan-glow)',
-    border: '1px solid var(--border2)',
+    fontSize: 12,
+    color: 'var(--text-2)',
+    background: 'var(--surface)',
+    border: '1px solid var(--border)',
     borderRadius: 6,
     padding: '6px 12px',
     cursor: 'pointer',
-    transition: 'all 0.15s',
+    transition: 'all var(--transition)',
+    fontWeight: 400,
   },
   inputArea: {
-    padding: '16px 24px 20px',
+    padding: '14px 24px 18px',
     borderTop: '1px solid var(--border)',
     background: 'var(--surface)',
     flexShrink: 0,
   },
   inputWrap: {
     display: 'flex',
-    alignItems: 'center',
-    gap: 10,
+    alignItems: 'flex-end',
+    gap: 8,
     background: 'var(--surface2)',
-    border: '1px solid var(--border)',
-    borderRadius: 12,
-    padding: '10px 14px',
-    transition: 'border-color 0.2s',
-  },
-  inputPrompt: {
-    fontFamily: 'var(--mono)',
-    fontSize: 14,
-    color: 'var(--cyan)',
-    flexShrink: 0,
-    lineHeight: 1,
+    border: '1px solid',
+    borderRadius: 'var(--radius-lg)',
+    padding: '10px 10px 10px 14px',
+    transition: 'border-color var(--transition)',
   },
   input: {
     flex: 1,
@@ -431,41 +452,37 @@ const ts = {
     outline: 'none',
     color: 'var(--text)',
     fontSize: 14,
-    fontFamily: 'var(--sans)',
     resize: 'none',
     lineHeight: 1.5,
-    maxHeight: 120,
+    padding: 0,
+    minHeight: 22,
   },
   sendBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    background: 'var(--cyan)',
-    color: '#000',
-    fontSize: 16,
-    fontWeight: 700,
+    width: 30,
+    height: 30,
+    borderRadius: 6,
+    background: 'var(--accent)',
+    color: '#fff',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    cursor: 'pointer',
     flexShrink: 0,
-    transition: 'all 0.15s',
+    transition: 'all var(--transition)',
   },
   spinner: {
-    width: 14,
-    height: 14,
-    border: '2px solid rgba(0,0,0,0.2)',
-    borderTopColor: '#000',
+    width: 12,
+    height: 12,
+    border: '2px solid rgba(255,255,255,0.3)',
+    borderTopColor: '#fff',
     borderRadius: '50%',
     display: 'inline-block',
     animation: 'spin 0.6s linear infinite',
   },
   inputHint: {
-    fontFamily: 'var(--mono)',
-    fontSize: 9,
-    color: 'var(--text-dim)',
+    fontSize: 10,
+    color: 'var(--text-3)',
     textAlign: 'center',
-    marginTop: 8,
-    letterSpacing: '0.5px',
+    marginTop: 7,
+    fontFamily: 'var(--mono)',
   },
 };
