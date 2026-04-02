@@ -1,0 +1,29 @@
+{
+  "core-app": {
+    "namespace": "payments",
+    "podName": "core-app-7f8d9c6b4d-xk29l",
+    "status": "Running",
+    "ready": true,
+    "restartCount": 0,
+    "lastRestart": null,
+    "lastChecked": "2026-02-23T10:20:00"
+  },
+  "connecting-app": {
+    "namespace": "payments",
+    "podName": "connecting-app-6a7b8c9d4f-pl82m",
+    "status": "CrashLoopBackOff",
+    "ready": false,
+    "restartCount": 5,
+    "lastRestart": "2026-02-23T10:05:01",
+    "lastChecked": "2026-02-23T10:20:00"
+  },
+  "secrets-app": {
+    "namespace": "payments",
+    "podName": "secrets-app-5c6d7e8f9a-rx73n",
+    "status": "Running",
+    "ready": true,
+    "restartCount": 1,
+    "lastRestart": "2026-02-22T23:45:00",
+    "lastChecked": "2026-02-23T10:20:00"
+  }
+}
