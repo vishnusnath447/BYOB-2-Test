@@ -2,10 +2,10 @@ import React, { useRef, useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 
 const TOOL_COLORS = {
-  get_call_ref:      'var(--accent)',
-  analyze_logs:      'var(--amber)',
-  check_transaction: 'var(--green)',
-  get_pod_status:    '#a78bfa',
+  get_call_ref:      { color: '#2563EB', bg: '#EEF3FF' },
+  analyze_logs:      { color: '#D97706', bg: '#FEF3C7' },
+  check_transaction: { color: '#16A34A', bg: '#DCFCE7' },
+  get_pod_status:    { color: '#7C3AED', bg: '#EDE9FE' },
 };
 
 const SUGGESTIONS = [
@@ -16,9 +16,9 @@ const SUGGESTIONS = [
 ];
 
 function ToolBadge({ name }) {
-  const color = TOOL_COLORS[name] || 'var(--text-3)';
+  const style = TOOL_COLORS[name] || { color: '#64748B', bg: '#F1F5F9' };
   return (
-    <span style={{ ...ts.badge, color, borderColor: color + '33', background: color + '10' }}>
+    <span style={{ ...ts.badge, color: style.color, background: style.bg }}>
       {name}
     </span>
   );
@@ -27,8 +27,8 @@ function ToolBadge({ name }) {
 function TypingIndicator() {
   return (
     <div style={ts.msgRow}>
-      <div style={ts.avatar}>AI</div>
-      <div style={{ ...ts.bubble, ...ts.agentBubble, padding: '12px 16px' }}>
+      <div style={ts.agentAvatar}>AI</div>
+      <div style={{ ...ts.bubble, ...ts.agentBubble, padding: '14px 16px' }}>
         <div style={ts.typing}>
           {[0, 1, 2].map(i => (
             <span key={i} style={{ ...ts.typingDot, animationDelay: `${i * 0.15}s` }} />
@@ -44,13 +44,24 @@ function Message({ msg }) {
   const isError = msg.role === 'error';
 
   return (
-    <div style={{ ...ts.msgRow, flexDirection: isUser ? 'row-reverse' : 'row', animation: 'fadeUp 0.2s ease' }}>
-      <div style={{ ...ts.avatar, ...(isUser ? ts.userAvatar : ts.agentAvatarStyle) }}>
+    <div style={{
+      ...ts.msgRow,
+      flexDirection: isUser ? 'row-reverse' : 'row',
+      animation: 'fadeUp 0.25s ease',
+    }}>
+      <div style={{ ...ts.avatar, ...(isUser ? ts.userAvatar : ts.agentAvatar) }}>
         {isUser ? 'You' : 'AI'}
       </div>
-      <div style={{ maxWidth: '72%', display: 'flex', flexDirection: 'column', gap: 5, alignItems: isUser ? 'flex-end' : 'flex-start' }}>
+      <div style={{
+        maxWidth: '70%',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 6,
+        alignItems: isUser ? 'flex-end' : 'flex-start',
+      }}>
         {msg.tools && msg.tools.length > 0 && (
           <div style={ts.toolsRow}>
+            <span style={ts.toolsLabel}>Tools used:</span>
             {msg.tools.map((t, i) => <ToolBadge key={i} name={t} />)}
           </div>
         )}
@@ -59,7 +70,7 @@ function Message({ msg }) {
           ...(isUser ? ts.userBubble : isError ? ts.errorBubble : ts.agentBubble),
         }}>
           {isUser ? (
-            <span style={{ fontSize: 14, lineHeight: 1.6 }}>{msg.content}</span>
+            <span style={ts.userText}>{msg.content}</span>
           ) : (
             <div style={ts.mdWrap}>
               <ReactMarkdown>{msg.content}</ReactMarkdown>
@@ -74,28 +85,35 @@ function Message({ msg }) {
 function EmptyState({ onSuggest, viewingPast }) {
   if (viewingPast) return (
     <div style={ts.empty}>
-      <div style={ts.emptyIcon}>
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
-          <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke="var(--text-3)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <div style={ts.emptyIconWrap}>
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+          <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+            stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       </div>
-      <div style={ts.emptyTitle}>Past Session</div>
-      <div style={ts.emptySub}>This is a read-only view of a past session summary.<br/>Start a new session to investigate.</div>
+      <div style={ts.emptyTitle}>Viewing Past Session</div>
+      <div style={ts.emptySub}>This is a read-only summary. Start a new session to investigate.</div>
     </div>
   );
 
   return (
     <div style={ts.empty}>
-      <div style={ts.emptyIcon}>
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
-          <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke="var(--text-3)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <div style={ts.emptyIconWrap}>
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+          <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"
+            stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       </div>
       <div style={ts.emptyTitle}>Payment Investigation Agent</div>
-      <div style={ts.emptySub}>Ask about any payment ID, failure, or infrastructure status.<br/>The agent investigates autonomously using 4 tools.</div>
+      <div style={ts.emptySub}>
+        Ask about any payment tracking ID, failure root cause,<br />
+        or infrastructure status. The agent investigates autonomously.
+      </div>
       <div style={ts.suggestions}>
         {SUGGESTIONS.map(s => (
-          <button key={s} style={ts.suggestBtn} onClick={() => onSuggest(s)}>{s}</button>
+          <button key={s} style={ts.suggestBtn} onClick={() => onSuggest(s)}>
+            {s}
+          </button>
         ))}
       </div>
     </div>
@@ -103,16 +121,14 @@ function EmptyState({ onSuggest, viewingPast }) {
 }
 
 export default function ChatPanel({ messages, loading, agentStatus, onSend, sessionId, viewingPast, onNewSession }) {
-  const [input, setInput]   = useState('');
-  const bottomRef           = useRef(null);
-  const inputRef            = useRef(null);
-  const textareaRef         = useRef(null);
+  const [input, setInput] = useState('');
+  const bottomRef         = useRef(null);
+  const textareaRef       = useRef(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
 
-  // Auto-resize textarea
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
@@ -130,32 +146,29 @@ export default function ChatPanel({ messages, loading, agentStatus, onSend, sess
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
   };
 
-  const statusText = { thinking: 'Thinking...', done: 'Done' }[agentStatus] || '';
-
   return (
     <div style={ts.panel}>
       {/* Header */}
       <div style={ts.header}>
         <div style={ts.headerLeft}>
-          <span style={ts.headerTitle}>
-            {viewingPast ? 'Past Session' : 'Investigation Console'}
-          </span>
+          <div style={ts.headerTitle}>Investigation Console</div>
           {sessionId && (
-            <span style={ts.sessionChip}>
-              <span style={{ ...ts.chipDot, background: viewingPast ? 'var(--amber)' : 'var(--green)' }} />
-              {sessionId.slice(0, 8)}
+            <div style={ts.sessionChip}>
+              <span style={{ ...ts.chipDot, background: viewingPast ? '#D97706' : '#16A34A' }} />
+              <span style={ts.chipText}>SID-{sessionId}</span>
+            </div>
+          )}
+          {viewingPast && <span style={ts.readOnlyBadge}>Read only</span>}
+        </div>
+        <div style={ts.headerRight}>
+          {agentStatus === 'thinking' && (
+            <span style={ts.thinkingChip}>
+              <span style={ts.thinkingDot} />
+              Investigating...
             </span>
           )}
           {viewingPast && (
-            <span style={ts.readOnlyBadge}>Read only</span>
-          )}
-        </div>
-        <div style={ts.headerRight}>
-          {statusText && (
-            <span style={ts.statusText}>{statusText}</span>
-          )}
-          {viewingPast && (
-            <button style={ts.resumeBtn} onClick={onNewSession}>
+            <button style={ts.newSessionBtn} onClick={onNewSession}>
               + New session
             </button>
           )}
@@ -165,7 +178,10 @@ export default function ChatPanel({ messages, loading, agentStatus, onSend, sess
       {/* Messages */}
       <div style={ts.messages}>
         {messages.length === 0 ? (
-          <EmptyState onSuggest={(s) => { setInput(s); textareaRef.current?.focus(); }} viewingPast={viewingPast} />
+          <EmptyState
+            onSuggest={s => { setInput(s); textareaRef.current?.focus(); }}
+            viewingPast={viewingPast}
+          />
         ) : (
           <>
             {messages.map(m => <Message key={m.id} msg={m} />)}
@@ -178,7 +194,7 @@ export default function ChatPanel({ messages, loading, agentStatus, onSend, sess
       {/* Input */}
       {!viewingPast && (
         <div style={ts.inputArea}>
-          <div style={{ ...ts.inputWrap, borderColor: loading ? 'rgba(37,99,235,0.3)' : 'var(--border)' }}>
+          <div style={ts.inputCard}>
             <textarea
               ref={textareaRef}
               value={input}
@@ -196,13 +212,14 @@ export default function ChatPanel({ messages, loading, agentStatus, onSend, sess
             >
               {loading
                 ? <span style={ts.spinner} />
-                : <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                    <path d="M12 5l7 7-7 7M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                : <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z"
+                      stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
               }
             </button>
           </div>
-          <div style={ts.inputHint}>Enter to send · Shift+Enter for newline</div>
+          <div style={ts.inputHint}>Press Enter to send · Shift+Enter for new line</div>
         </div>
       )}
     </div>
@@ -221,158 +238,187 @@ const ts = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: '14px 24px',
-    borderBottom: '1px solid var(--border)',
+    padding: '16px 28px',
     background: 'var(--surface)',
+    borderBottom: '1px solid var(--border)',
     flexShrink: 0,
-    minHeight: 54,
+    boxShadow: 'var(--shadow-sm)',
   },
   headerLeft: {
     display: 'flex',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
   },
   headerTitle: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: 600,
     color: 'var(--text)',
-    letterSpacing: '-0.2px',
+    letterSpacing: '-0.3px',
   },
   sessionChip: {
     display: 'flex',
     alignItems: 'center',
     gap: 5,
-    fontSize: 11,
-    fontFamily: 'var(--mono)',
-    color: 'var(--text-2)',
     background: 'var(--surface2)',
     border: '1px solid var(--border)',
-    borderRadius: 4,
-    padding: '2px 7px',
+    borderRadius: 20,
+    padding: '3px 10px',
   },
   chipDot: {
-    width: 5,
-    height: 5,
+    width: 6,
+    height: 6,
     borderRadius: '50%',
     flexShrink: 0,
   },
+  chipText: {
+    fontSize: 11,
+    fontFamily: 'var(--mono)',
+    color: 'var(--text-2)',
+  },
   readOnlyBadge: {
     fontSize: 10,
-    fontWeight: 500,
-    color: 'var(--amber)',
-    background: 'var(--amber-dim)',
-    border: '1px solid rgba(245,158,11,0.2)',
-    borderRadius: 4,
-    padding: '2px 7px',
-    fontFamily: 'var(--mono)',
+    fontWeight: 600,
+    color: '#D97706',
+    background: '#FEF3C7',
+    border: '1px solid #FDE68A',
+    borderRadius: 20,
+    padding: '3px 10px',
   },
   headerRight: {
     display: 'flex',
     alignItems: 'center',
     gap: 10,
   },
-  statusText: {
+  thinkingChip: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
     fontSize: 12,
-    color: 'var(--text-3)',
-    fontStyle: 'italic',
-    animation: 'pulse 1.5s ease-in-out infinite',
-  },
-  resumeBtn: {
-    fontSize: 12,
+    color: 'var(--accent)',
     fontWeight: 500,
-    color: '#60a5fa',
-    background: 'var(--accent-dim)',
-    border: '1px solid rgba(37,99,235,0.2)',
-    borderRadius: 'var(--radius)',
-    padding: '5px 10px',
+    background: 'var(--accent-light)',
+    borderRadius: 20,
+    padding: '4px 12px',
+  },
+  thinkingDot: {
+    width: 6,
+    height: 6,
+    borderRadius: '50%',
+    background: 'var(--accent)',
+    display: 'inline-block',
+    animation: 'pulse 1s ease-in-out infinite',
+  },
+  newSessionBtn: {
+    fontSize: 12,
+    fontWeight: 600,
+    color: 'var(--accent)',
+    background: 'var(--accent-light)',
+    border: '1px solid #BFDBFE',
+    borderRadius: 8,
+    padding: '6px 14px',
     cursor: 'pointer',
   },
   messages: {
     flex: 1,
     overflowY: 'auto',
-    padding: '28px 24px',
+    padding: '28px',
     display: 'flex',
     flexDirection: 'column',
-    gap: 20,
+    gap: 22,
   },
   msgRow: {
     display: 'flex',
-    gap: 10,
+    gap: 12,
     alignItems: 'flex-start',
   },
   avatar: {
-    width: 30,
-    height: 30,
-    borderRadius: 6,
+    width: 32,
+    height: 32,
+    borderRadius: 10,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     fontSize: 10,
-    fontWeight: 600,
+    fontWeight: 700,
     fontFamily: 'var(--mono)',
     flexShrink: 0,
   },
-  agentAvatarStyle: {
+  agentAvatar: {
     background: 'var(--accent)',
     color: '#fff',
+    boxShadow: '0 2px 8px rgba(37,99,235,0.25)',
   },
   userAvatar: {
-    background: 'var(--surface3)',
+    background: 'var(--surface)',
     color: 'var(--text-2)',
     border: '1px solid var(--border)',
   },
+  toolsRow: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 5,
+    alignItems: 'center',
+  },
+  toolsLabel: {
+    fontSize: 10,
+    color: 'var(--text-3)',
+    fontWeight: 500,
+  },
+  badge: {
+    fontSize: 10,
+    fontFamily: 'var(--mono)',
+    fontWeight: 500,
+    padding: '2px 8px',
+    borderRadius: 20,
+  },
   bubble: {
-    padding: '10px 14px',
-    borderRadius: 10,
-    lineHeight: 1.65,
+    padding: '12px 16px',
+    borderRadius: 'var(--radius)',
     fontSize: 14,
+    lineHeight: 1.65,
+    boxShadow: 'var(--shadow-sm)',
   },
   agentBubble: {
     background: 'var(--surface)',
     border: '1px solid var(--border)',
-    borderTopLeftRadius: 3,
+    borderTopLeftRadius: 4,
     color: 'var(--text)',
   },
   userBubble: {
-    background: 'var(--accent-dim)',
-    border: '1px solid rgba(37,99,235,0.2)',
-    borderTopRightRadius: 3,
-    color: 'var(--text)',
+    background: 'var(--accent)',
+    border: 'none',
+    borderTopRightRadius: 4,
+    color: '#fff',
+    boxShadow: '0 2px 12px rgba(37,99,235,0.2)',
   },
   errorBubble: {
-    background: 'var(--red-dim)',
-    border: '1px solid rgba(239,68,68,0.2)',
+    background: '#FEE2E2',
+    border: '1px solid #FECACA',
     color: 'var(--red)',
-    borderTopLeftRadius: 3,
+    borderTopLeftRadius: 4,
+  },
+  userText: {
+    fontSize: 14,
+    lineHeight: 1.6,
+    color: '#fff',
   },
   mdWrap: {
     color: 'var(--text)',
     fontSize: 14,
     lineHeight: 1.7,
   },
-  toolsRow: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: 4,
-  },
-  badge: {
-    fontSize: 10,
-    fontFamily: 'var(--mono)',
-    padding: '2px 6px',
-    borderRadius: 4,
-    border: '1px solid',
-  },
   typing: {
     display: 'flex',
-    gap: 4,
+    gap: 5,
     alignItems: 'center',
-    height: 16,
+    height: 18,
   },
   typingDot: {
-    width: 6,
-    height: 6,
+    width: 7,
+    height: 7,
     borderRadius: '50%',
-    background: 'var(--text-3)',
+    background: 'var(--accent)',
+    opacity: 0.5,
     display: 'inline-block',
     animation: 'typingBounce 1s ease-in-out infinite',
   },
@@ -382,67 +428,70 @@ const ts = {
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
-    padding: '40px 20px',
+    gap: 14,
+    padding: '48px 24px',
     textAlign: 'center',
     animation: 'fadeIn 0.3s ease',
   },
-  emptyIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    background: 'var(--surface)',
-    border: '1px solid var(--border)',
+  emptyIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 20,
+    background: 'var(--accent-light)',
+    border: '1px solid #BFDBFE',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 4,
+    boxShadow: '0 4px 16px rgba(37,99,235,0.1)',
   },
   emptyTitle: {
-    fontSize: 16,
-    fontWeight: 600,
+    fontSize: 20,
+    fontWeight: 700,
     color: 'var(--text)',
-    letterSpacing: '-0.3px',
+    letterSpacing: '-0.4px',
   },
   emptySub: {
-    fontSize: 13,
+    fontSize: 14,
     color: 'var(--text-2)',
-    lineHeight: 1.6,
-    maxWidth: 400,
+    lineHeight: 1.65,
+    maxWidth: 420,
   },
   suggestions: {
     display: 'flex',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: 8,
     justifyContent: 'center',
-    marginTop: 6,
-    maxWidth: 520,
+    marginTop: 8,
+    maxWidth: 540,
   },
   suggestBtn: {
     fontSize: 12,
-    color: 'var(--text-2)',
+    fontWeight: 500,
+    color: 'var(--accent)',
     background: 'var(--surface)',
     border: '1px solid var(--border)',
-    borderRadius: 6,
-    padding: '6px 12px',
+    borderRadius: 20,
+    padding: '7px 16px',
     cursor: 'pointer',
+    boxShadow: 'var(--shadow-sm)',
     transition: 'all var(--transition)',
-    fontWeight: 400,
   },
   inputArea: {
-    padding: '14px 24px 18px',
-    borderTop: '1px solid var(--border)',
+    padding: '16px 28px 22px',
     background: 'var(--surface)',
+    borderTop: '1px solid var(--border)',
     flexShrink: 0,
   },
-  inputWrap: {
+  inputCard: {
     display: 'flex',
     alignItems: 'flex-end',
-    gap: 8,
+    gap: 10,
     background: 'var(--surface2)',
-    border: '1px solid',
+    border: '1.5px solid var(--border)',
     borderRadius: 'var(--radius-lg)',
-    padding: '10px 10px 10px 14px',
+    padding: '12px 12px 12px 18px',
+    boxShadow: 'var(--shadow-sm)',
     transition: 'border-color var(--transition)',
   },
   input: {
@@ -454,35 +503,34 @@ const ts = {
     fontSize: 14,
     resize: 'none',
     lineHeight: 1.5,
-    padding: 0,
     minHeight: 22,
+    maxHeight: 120,
   },
   sendBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 6,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     background: 'var(--accent)',
-    color: '#fff',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
+    boxShadow: '0 2px 8px rgba(37,99,235,0.3)',
     transition: 'all var(--transition)',
   },
   spinner: {
-    width: 12,
-    height: 12,
+    width: 14,
+    height: 14,
     border: '2px solid rgba(255,255,255,0.3)',
     borderTopColor: '#fff',
     borderRadius: '50%',
     display: 'inline-block',
-    animation: 'spin 0.6s linear infinite',
+    animation: 'spin 0.7s linear infinite',
   },
   inputHint: {
-    fontSize: 10,
+    fontSize: 11,
     color: 'var(--text-3)',
     textAlign: 'center',
-    marginTop: 7,
-    fontFamily: 'var(--mono)',
+    marginTop: 8,
   },
 };

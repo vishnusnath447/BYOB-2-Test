@@ -1,74 +1,63 @@
-import React, { useState } from 'react';
+import React from 'react';
 
 const TOOLS = [
-  { name: 'get_call_ref',      desc: 'PTX → CallRef mapping',   color: 'var(--accent)'  },
-  { name: 'analyze_logs',      desc: 'Log error lookup',        color: 'var(--amber)'   },
-  { name: 'check_transaction', desc: 'DB transaction status',   color: 'var(--green)'   },
-  { name: 'get_pod_status',    desc: 'K8s pod health',          color: '#a78bfa'        },
+  { name: 'get_call_ref',      desc: 'PTX → CallRef mapping',  color: '#2563EB', bg: '#EEF3FF' },
+  { name: 'analyze_logs',      desc: 'Log error lookup',       color: '#D97706', bg: '#FEF3C7' },
+  { name: 'check_transaction', desc: 'DB transaction status',  color: '#16A34A', bg: '#DCFCE7' },
+  { name: 'get_pod_status',    desc: 'K8s pod health',         color: '#7C3AED', bg: '#EDE9FE' },
 ];
 
 export default function Sidebar({ sessionId, pastSessions, onNewSession, onLoadSession, messageCount, viewingPast, agentStatus }) {
-  const [expanded, setExpanded] = useState(null);
-
-  const statusColor = {
-    idle:    'var(--green)',
-    thinking:'var(--accent)',
-    done:    'var(--green)',
-  }[agentStatus] || 'var(--text-3)';
-
-  const statusLabel = {
-    idle:    'Ready',
-    thinking:'Processing',
-    done:    'Complete',
-  }[agentStatus] || 'Ready';
+  const isActive = agentStatus === 'thinking';
 
   return (
-    <aside style={s.sidebar}>
+    <aside style={s.aside}>
       {/* Brand */}
       <div style={s.brand}>
         <div style={s.brandIcon}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
             <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </div>
         <div>
           <div style={s.brandName}>PayAgent</div>
-          <div style={s.brandVersion}>v3.0 · Neural Nexus</div>
+          <div style={s.brandSub}>Investigation Suite v3</div>
         </div>
       </div>
 
-      <div style={s.divider} />
-
-      {/* Status + New session */}
-      <div style={s.section}>
-        <div style={s.sessionRow}>
-          <div style={s.sessionInfo}>
-            <div style={{ ...s.statusDot, background: statusColor }} />
-            <span style={s.sessionId}>
-              {viewingPast ? `Viewing past session` : sessionId ? `Session ${sessionId}` : 'Initializing...'}
+      {/* Session card */}
+      <div style={s.sessionCard}>
+        <div style={s.sessionTop}>
+          <div style={s.sessionLeft}>
+            <div style={{ ...s.statusDot, background: isActive ? '#F59E0B' : '#16A34A' }} />
+            <span style={s.sessionLabel}>
+              {viewingPast ? 'Past session' : 'Active session'}
             </span>
           </div>
-          <span style={s.msgCount}>{messageCount} msg</span>
+          <span style={s.msgBadge}>{messageCount}</span>
+        </div>
+        <div style={s.sessionId}>
+          {sessionId ? `SID-${sessionId}` : 'Initializing...'}
         </div>
         <button style={s.newBtn} onClick={onNewSession}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-            <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+            <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
           </svg>
           New session
         </button>
       </div>
 
-      <div style={s.divider} />
-
       {/* Tools */}
       <div style={s.section}>
-        <div style={s.sectionTitle}>Tools</div>
-        <div style={s.toolsList}>
+        <div style={s.sectionTitle}>Available Tools</div>
+        <div style={s.toolsGrid}>
           {TOOLS.map(t => (
-            <div key={t.name} style={s.toolItem}>
-              <div style={{ ...s.toolDot, background: t.color }} />
+            <div key={t.name} style={s.toolCard}>
+              <div style={{ ...s.toolDot, background: t.bg }}>
+                <div style={{ width: 7, height: 7, borderRadius: '50%', background: t.color }} />
+              </div>
               <div>
-                <div style={s.toolName}>{t.name}</div>
+                <div style={{ ...s.toolName, color: t.color }}>{t.name}</div>
                 <div style={s.toolDesc}>{t.desc}</div>
               </div>
             </div>
@@ -76,193 +65,213 @@ export default function Sidebar({ sessionId, pastSessions, onNewSession, onLoadS
         </div>
       </div>
 
-      <div style={s.divider} />
-
       {/* Past sessions */}
-      <div style={{ ...s.section, flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <div style={s.section}>
         <div style={s.sectionTitle}>Past Sessions</div>
-        <div style={s.sessionList}>
-          {pastSessions.length === 0 ? (
-            <div style={s.emptyNote}>No saved sessions yet.<br/>Save a session to see it here.</div>
-          ) : (
-            [...pastSessions].reverse().map(ps => (
-              <button
-                key={ps.session_id}
-                style={{
-                  ...s.pastItem,
-                  ...(sessionId === ps.session_id && viewingPast ? s.pastItemActive : {}),
-                }}
-                onClick={() => onLoadSession(ps)}
-              >
-                <div style={s.pastItemHeader}>
-                  <span style={s.pastId}>{ps.session_id.slice(0, 8)}</span>
-                  {ps.query_count > 0 && (
-                    <span style={s.pastCount}>{ps.query_count} queries</span>
-                  )}
-                </div>
-                <div style={s.pastSummary}>
-                  {(ps.summary || 'No summary available').slice(0, 80)}...
-                </div>
-              </button>
-            ))
-          )}
-        </div>
+      </div>
+      <div style={s.sessionList}>
+        {pastSessions.length === 0 ? (
+          <div style={s.emptyNote}>No saved sessions yet</div>
+        ) : (
+          [...pastSessions].reverse().map(ps => (
+            <button
+              key={ps.session_id}
+              style={{
+                ...s.pastCard,
+                ...(sessionId === ps.session_id && viewingPast ? s.pastCardActive : {}),
+              }}
+              onClick={() => onLoadSession(ps)}
+            >
+              <div style={s.pastHeader}>
+                <span style={s.pastId}>SID-{ps.session_id.slice(0, 8)}</span>
+                {ps.query_count > 0 && <span style={s.pastCount}>{ps.query_count} queries</span>}
+              </div>
+              <div style={s.pastSummary}>
+                {(ps.summary || 'No summary').slice(0, 72)}...
+              </div>
+            </button>
+          ))
+        )}
       </div>
 
       {/* Footer */}
       <div style={s.footer}>
-        <span style={s.footerText}>LangGraph · FAISS · Groq Llama 3.3</span>
+        <span style={s.footerText}>LangGraph · FAISS · Groq · React</span>
+        <span style={s.footerText}>UST Neural Nexus</span>
       </div>
     </aside>
   );
 }
 
 const s = {
-  sidebar: {
-    width: 252,
-    minWidth: 252,
+  aside: {
+    width: 268,
+    minWidth: 268,
     background: 'var(--surface)',
     borderRight: '1px solid var(--border)',
     display: 'flex',
     flexDirection: 'column',
     overflow: 'hidden',
+    boxShadow: '2px 0 12px rgba(0,0,0,0.04)',
   },
   brand: {
     display: 'flex',
     alignItems: 'center',
-    gap: 10,
-    padding: '18px 16px 16px',
+    gap: 12,
+    padding: '22px 20px 18px',
+    borderBottom: '1px solid var(--border)',
   },
   brandIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 8,
+    width: 38,
+    height: 38,
+    borderRadius: 10,
     background: 'var(--accent)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
+    boxShadow: '0 4px 12px rgba(37,99,235,0.3)',
   },
   brandName: {
-    fontSize: 15,
-    fontWeight: 600,
+    fontSize: 16,
+    fontWeight: 700,
     color: 'var(--text)',
-    letterSpacing: '-0.3px',
+    letterSpacing: '-0.4px',
   },
-  brandVersion: {
+  brandSub: {
     fontSize: 11,
     color: 'var(--text-3)',
     marginTop: 1,
     fontFamily: 'var(--mono)',
   },
-  divider: {
-    height: 1,
-    background: 'var(--border)',
-    margin: '0 16px',
-  },
-  section: {
+  sessionCard: {
+    margin: '16px 16px 0',
     padding: '14px 16px',
+    background: 'var(--accent-light)',
+    borderRadius: 'var(--radius)',
+    border: '1px solid #DBEAFE',
   },
-  sectionTitle: {
-    fontSize: 11,
-    fontWeight: 500,
-    color: 'var(--text-3)',
-    letterSpacing: '0.06em',
-    textTransform: 'uppercase',
-    marginBottom: 10,
-  },
-  sessionRow: {
+  sessionTop: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 6,
   },
-  sessionInfo: {
+  sessionLeft: {
     display: 'flex',
     alignItems: 'center',
-    gap: 7,
+    gap: 6,
   },
   statusDot: {
     width: 7,
     height: 7,
     borderRadius: '50%',
     flexShrink: 0,
-    transition: 'background var(--transition)',
+  },
+  sessionLabel: {
+    fontSize: 11,
+    fontWeight: 500,
+    color: 'var(--accent)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+  },
+  msgBadge: {
+    fontSize: 10,
+    fontWeight: 600,
+    color: 'var(--accent)',
+    background: 'var(--surface)',
+    borderRadius: 20,
+    padding: '1px 7px',
+    fontFamily: 'var(--mono)',
   },
   sessionId: {
     fontSize: 12,
     fontFamily: 'var(--mono)',
     color: 'var(--text-2)',
-  },
-  msgCount: {
-    fontSize: 11,
-    color: 'var(--text-3)',
-    fontFamily: 'var(--mono)',
+    marginBottom: 10,
   },
   newBtn: {
     width: '100%',
-    padding: '7px 12px',
-    background: 'var(--accent-dim)',
-    border: '1px solid rgba(37,99,235,0.2)',
-    borderRadius: 'var(--radius)',
-    color: '#60a5fa',
+    padding: '8px',
+    background: 'var(--accent)',
+    borderRadius: 8,
+    color: '#fff',
     fontSize: 12,
-    fontWeight: 500,
+    fontWeight: 600,
     display: 'flex',
     alignItems: 'center',
     gap: 6,
     justifyContent: 'center',
-    transition: 'all var(--transition)',
+    transition: 'background var(--transition)',
+    boxShadow: '0 2px 8px rgba(37,99,235,0.25)',
   },
-  toolsList: {
+  section: {
+    padding: '18px 20px 8px',
+  },
+  sectionTitle: {
+    fontSize: 11,
+    fontWeight: 600,
+    color: 'var(--text-3)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.08em',
+    marginBottom: 10,
+  },
+  toolsGrid: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 8,
+    gap: 6,
   },
-  toolItem: {
+  toolCard: {
     display: 'flex',
-    alignItems: 'flex-start',
-    gap: 9,
+    alignItems: 'center',
+    gap: 10,
+    padding: '8px 10px',
+    background: 'var(--surface2)',
+    borderRadius: 8,
+    border: '1px solid var(--border)',
   },
   toolDot: {
-    width: 6,
-    height: 6,
-    borderRadius: '50%',
-    marginTop: 5,
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
     flexShrink: 0,
   },
   toolName: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: 'var(--mono)',
-    color: 'var(--text-2)',
+    fontWeight: 500,
     marginBottom: 1,
   },
   toolDesc: {
-    fontSize: 11,
+    fontSize: 10,
     color: 'var(--text-3)',
   },
   sessionList: {
     flex: 1,
     overflowY: 'auto',
+    padding: '0 16px',
     display: 'flex',
     flexDirection: 'column',
-    gap: 4,
+    gap: 6,
   },
-  pastItem: {
+  pastCard: {
     width: '100%',
     textAlign: 'left',
-    padding: '9px 10px',
+    padding: '10px 12px',
     borderRadius: 'var(--radius)',
-    background: 'transparent',
-    border: '1px solid transparent',
+    background: 'var(--surface2)',
+    border: '1px solid var(--border)',
     cursor: 'pointer',
     transition: 'all var(--transition)',
   },
-  pastItemActive: {
-    background: 'var(--accent-dim2)',
-    border: '1px solid rgba(37,99,235,0.2)',
+  pastCardActive: {
+    background: 'var(--accent-light)',
+    border: '1px solid #BFDBFE',
   },
-  pastItemHeader: {
+  pastHeader: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -271,7 +280,8 @@ const s = {
   pastId: {
     fontSize: 11,
     fontFamily: 'var(--mono)',
-    color: 'var(--accent-hover)',
+    color: 'var(--accent)',
+    fontWeight: 500,
   },
   pastCount: {
     fontSize: 10,
@@ -280,18 +290,21 @@ const s = {
   },
   pastSummary: {
     fontSize: 11,
-    color: 'var(--text-3)',
+    color: 'var(--text-2)',
     lineHeight: 1.5,
   },
   emptyNote: {
-    fontSize: 11,
+    fontSize: 12,
     color: 'var(--text-3)',
-    lineHeight: 1.6,
-    padding: '4px 2px',
+    textAlign: 'center',
+    padding: '16px 0',
   },
   footer: {
-    padding: '10px 16px',
+    padding: '12px 20px',
     borderTop: '1px solid var(--border)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 2,
   },
   footerText: {
     fontSize: 10,
