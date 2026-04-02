@@ -1,21 +1,20 @@
 """
 Payment Investigation AI Agent v3
-FastAPI backend — replaces Streamlit UI
+FastAPI backend
 """
 
 import uuid
 import sys
 import os
-from pathlib import Path
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from agent.graph import run_agent, summarize_and_save_session
-from memory.faiss_memory import get_all_sessions
+from agent.graph import run_agent
+from memory.faiss_memory import get_all_sessions, save_conversation_summary
 from langchain_core.messages import HumanMessage, AIMessage
 
 app = FastAPI(title="Payment AI Agent v3")
@@ -28,7 +27,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# In-memory session store (replace with Redis for production)
+# In-memory store
+# sessions[sid] = { "history": [...LangChain messages], "log": ["User: ...", "Agent: ..."] }
 sessions: dict = {}
 
 
@@ -56,14 +56,23 @@ class SessionSummary(BaseModel):
 @app.post("/session/new", response_model=NewSessionResponse)
 def new_session():
     sid = str(uuid.uuid4())[:8]
-    sessions[sid] = []
+    sessions[sid] = {"history": [], "log": []}
     return {"session_id": sid}
 
 
 @app.post("/session/{session_id}/save")
 def save_session(session_id: str):
-    history = sessions.get(session_id, [])
-    summarize_and_save_session(history, session_id)
+    session = sessions.get(session_id, {})
+    log = session.get("log", [])
+
+    if log:
+        summary = "\n".join(log)
+        save_conversation_summary(
+            session_id=session_id,
+            summary=summary,
+            metadata={"query_count": len([l for l in log if l.startswith("User:")])}
+        )
+
     sessions.pop(session_id, None)
     return {"status": "saved", "session_id": session_id}
 
@@ -72,9 +81,10 @@ def save_session(session_id: str):
 def chat(req: ChatRequest):
     sid = req.session_id
     if sid not in sessions:
-        sessions[sid] = []
+        sessions[sid] = {"history": [], "log": []}
 
-    history = sessions[sid]
+    session = sessions[sid]
+    history = session["history"]
 
     result = run_agent(
         user_query=req.message,
@@ -82,7 +92,12 @@ def chat(req: ChatRequest):
         session_id=sid,
     )
 
-    sessions[sid] = result["updated_history"]
+    # Update LangChain history
+    sessions[sid]["history"] = result["updated_history"]
+
+    # Update plain-text log (this is what gets saved to FAISS)
+    sessions[sid]["log"].append(f"User: {req.message}")
+    sessions[sid]["log"].append(f"Agent: {result['answer']}")
 
     return {
         "answer": result["answer"],
@@ -97,7 +112,7 @@ def list_sessions():
     return [
         {
             "session_id": sid,
-            "summary": data.get("summary", "")[:200],
+            "summary": data.get("summary", "")[:300],
             "query_count": data.get("query_count", 0),
         }
         for sid, data in list(all_sessions.items())[-10:]
