@@ -1,0 +1,22 @@
+# Environment
+python-dotenv
+
+# API
+fastapi
+uvicorn[standard]
+
+# LLM & Agent
+groq
+langgraph
+langchain
+langchain-groq
+langchain-community
+langchain-core
+langchain-huggingface
+
+# Memory
+faiss-cpu
+sentence-transformers
+
+# Future: analytics
+duckdb
