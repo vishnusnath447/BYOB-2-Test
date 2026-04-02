@@ -19,3 +19,4 @@ duckdb
 
 # OpenRouter swap (uncomment when ready)
 # openai
+langchain-huggingface

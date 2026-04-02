@@ -1,7 +1,5 @@
 """
 MCP-compatible tools for the payment investigation agent.
-Using LangChain @tool decorators — no heavy JSON schema needed in the prompt.
-LangGraph picks these up automatically.
 """
 
 import json
@@ -15,8 +13,13 @@ DATA_DIR = Path(__file__).parent.parent.parent / "data"
 @tool
 def get_call_ref(payment_tracking_id: str) -> dict:
     """
-    Get the callRefId mapped to a paymentTrackingId from metadata.
-    Always call this first when you have a PTX id and need to investigate logs.
+    Look up the callRefId for a given paymentTrackingId (PTX ID).
+
+    IMPORTANT:
+    - payment_tracking_id MUST be a PTX ID (format: PTX-XXXX e.g. PTX-1006).
+    - Do NOT pass a callRefId (CR-XXXX) here — this tool only accepts PTX IDs.
+    - Always call this first when the user gives you a PTX ID and you need to investigate logs.
+    - If the user gives you a CR ID directly, skip this tool and go straight to analyze_logs.
     """
     metadata_path = DATA_DIR / "metadata.json"
     if not metadata_path.exists():
@@ -35,10 +38,13 @@ def get_call_ref(payment_tracking_id: str) -> dict:
 @tool
 def analyze_logs(call_ref_id: str) -> dict:
     """
-    Query logs for a given callRefId. Only accepts one argument: call_ref_id (string).
-    Use 'ALL' as call_ref_id to get all failed transactions.
-    Returns all log entries for the callRefId including service, status, message, and timestamp.
-    Do NOT pass any other arguments like 'detailed' or 'verbose' — they are not supported.
+    Query logs for a given callRefId (CR-XXXX format e.g. CR-9006).
+
+    IMPORTANT:
+    - call_ref_id MUST be a CR ID (format: CR-XXXX). Do NOT pass a PTX ID here.
+    - Use 'ALL' to get a list of all failed call refs across all transactions.
+    - Only accepts one argument: call_ref_id. Do NOT pass 'detailed', 'verbose', or any other argument.
+    - Returns all log entries for the callRefId including service, status, message, and timestamp.
     """
     logs_path = DATA_DIR / "logs.json"
     if not logs_path.exists():
@@ -56,12 +62,11 @@ def analyze_logs(call_ref_id: str) -> dict:
     if not related:
         return {"callRefId": call_ref_id, "found": False, "message": "No logs found"}
 
-    # Return ALL log entries for this callRef, not just the first failure
     entries = [
         {
-            "service": log["service"],
-            "status": log["status"],
-            "message": log.get("message", ""),
+            "service":   log["service"],
+            "status":    log["status"],
+            "message":   log.get("message", ""),
             "timestamp": log.get("timestamp", ""),
         }
         for log in related
@@ -71,11 +76,11 @@ def analyze_logs(call_ref_id: str) -> dict:
     overall_status = "FAILED" if failures else "SUCCESS"
 
     return {
-        "callRefId": call_ref_id,
-        "found": True,
+        "callRefId":     call_ref_id,
+        "found":         True,
         "overallStatus": overall_status,
-        "totalLogs": len(entries),
-        "logs": entries,
+        "totalLogs":     len(entries),
+        "logs":          entries,
     }
 
 
@@ -83,6 +88,10 @@ def analyze_logs(call_ref_id: str) -> dict:
 def check_transaction(payment_tracking_id: str) -> dict:
     """
     Check if a payment transaction exists in the database and get its status.
+
+    IMPORTANT:
+    - payment_tracking_id MUST be a PTX ID (format: PTX-XXXX e.g. PTX-1006).
+    - Do NOT pass a CR ID here.
     """
     db_path = DATA_DIR / "payments.db"
     if not db_path.exists():
@@ -100,14 +109,21 @@ def check_transaction(payment_tracking_id: str) -> dict:
     if not row:
         return {"paymentTrackingId": payment_tracking_id, "existsInDB": False, "message": "Transaction not found"}
 
-    return {"paymentTrackingId": row[0], "callRefId": row[1], "status": row[2], "createdAt": row[3], "existsInDB": True}
+    return {
+        "paymentTrackingId": row[0],
+        "callRefId":         row[1],
+        "status":            row[2],
+        "createdAt":         row[3],
+        "existsInDB":        True,
+    }
 
 
 @tool
 def get_pod_status() -> dict:
     """
     Check Kubernetes pod health and infrastructure status.
-    Use when asked about infra, k8, pods, or to correlate failures with infrastructure issues.
+    Use when asked about infra, k8s, pods, or to correlate failures with infrastructure issues.
+    Takes no arguments.
     """
     k8_path = DATA_DIR / "k8_status.json"
     if not k8_path.exists():
@@ -120,10 +136,10 @@ def get_pod_status() -> dict:
     for service, details in k8_data.items():
         if details.get("status") != "Running" or not details.get("ready", False):
             unhealthy.append({
-                "service": service,
-                "status": details.get("status"),
+                "service":      service,
+                "status":       details.get("status"),
                 "restartCount": details.get("restartCount"),
-                "lastRestart": details.get("lastRestart"),
+                "lastRestart":  details.get("lastRestart"),
             })
         else:
             healthy.append(service)
@@ -131,5 +147,4 @@ def get_pod_status() -> dict:
     return {"healthyServices": healthy, "unhealthyServices": unhealthy}
 
 
-# All tools exported for LangGraph binding
 ALL_TOOLS = [get_call_ref, analyze_logs, check_transaction, get_pod_status]
